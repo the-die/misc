@@ -1,0 +1,17 @@
+Language: Cpp
+BasedOnStyle: Google
+ColumnLimit: 100
+
+DerivePointerAlignment: false
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+SortIncludes: true
+IncludeBlocks: Preserve
+
+IndentPPDirectives: AfterHash
+
+ForEachMacros: ['']
+
+SpacesBeforeTrailingComments: 2

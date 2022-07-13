@@ -27,20 +27,15 @@ static void* ThrdpoolRoutine(void* arg) {
   pthread_mutex_lock(&pool->mutex_);
   pthread_t tid = pool->tid_;
   pool->tid_ = pthread_self();
+
   if (--pool->nthreads_ == 0) pthread_cond_signal(pool->terminate_);
+
   pthread_mutex_unlock(&pool->mutex_);
 
   if (memcmp(&tid, &Thrdpool::zero_tid_, sizeof(tid)) != 0) pthread_join(tid, NULL);
 
   return nullptr;
 }
-
-bool Thrdpool::InitLocks() {
-  if (pthread_mutex_init(&mutex_, NULL) == 0) return true;
-  return false;
-}
-
-void Thrdpool::DestroyLocks() { pthread_mutex_destroy(&mutex_); }
 
 void Thrdpool::Terminate(bool in_pool) {
   pthread_cond_t term = PTHREAD_COND_INITIALIZER;
@@ -58,8 +53,7 @@ void Thrdpool::Terminate(bool in_pool) {
 
   pthread_mutex_unlock(&mutex_);
 
-  if (memcmp(&tid_, &zero_tid_, sizeof(tid_)) != 0)
-    pthread_join(tid_, NULL);
+  if (memcmp(&tid_, &zero_tid_, sizeof(tid_)) != 0) pthread_join(tid_, NULL);
 }
 
 bool Thrdpool::CreateThreads(size_t nthreads) {
@@ -84,17 +78,17 @@ bool Thrdpool::CreateThreads(size_t nthreads) {
 }
 
 bool Thrdpool::Create(size_t nthreads, size_t stacksize) {
-  if (InitLocks()) {
+  msgqueue_ = new MsgQueue(static_cast<size_t>(-1), 0);
+  if (pthread_mutex_init(&mutex_, NULL) == 0) {
     if (pthread_key_create(&key_, NULL) == 0) {
-      msgqueue_ = new MsgQueue(static_cast<size_t>(-1), 0);
       stacksize_ = stacksize;
       memset(&tid_, 0, sizeof(tid_));
       if (CreateThreads(nthreads)) return true;
-      delete msgqueue_;
       pthread_key_delete(key_);
     }
-    DestroyLocks();
+    pthread_mutex_destroy(&mutex_);
   }
+  delete msgqueue_;
   return false;
 }
 
@@ -137,5 +131,6 @@ void Thrdpool::Destroy(void (*pending)(const ThrdpoolTask&)) {
   }
 
   pthread_key_delete(key_);
-  DestroyLocks();
+  pthread_mutex_destroy(&mutex_);
+  delete msgqueue_;
 }

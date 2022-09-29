@@ -1,3 +1,6 @@
+#include <cassert>
+#include <cstdint>
+#include <ios>
 #include <iostream>
 #include <string>
 
@@ -40,7 +43,47 @@ void test_const_cast() {
   std::cout << "type::i = " << t.i << std::endl;
 }
 
+int f() { return 42; }
+
+void test_reinterpret_cast() {
+  int i = 7;
+
+  // pointer to integer and back
+  auto v1 = reinterpret_cast<std::uintptr_t>(&i);
+  // ERROR: static_cast is an error
+  // auto v = static_cast<std::uintptr_t>(&i);
+  // ERROR: cast from 'int*' to 'int' loses precision
+  // auto v = reinterpret_cast<int>(&i);
+  // ERROR: static_cast from 'int *' to 'int' is not allowed
+  // atuo v = static_cast<int>(&i);
+  [[maybe_unused]] auto v2 = reinterpret_cast<std::intptr_t>(&i);  // OK
+  std::cout << "The value of &i is " << std::showbase << std::hex << v1 << std::endl;
+  auto p1 = reinterpret_cast<int*>(v1);
+  assert(p1 == &i);
+
+  // pointer to function to another and back
+  void (*fp1)() = reinterpret_cast<void (*)()>(f);
+  // WARNING: undefined behavior
+  // fp1();
+  int (*fp2)() = reinterpret_cast<int (*)()>(fp1);
+  std::cout << std::dec << fp2() << std::endl;  // safe
+
+  // type aliasing through pointer
+  char* p2 = reinterpret_cast<char*>(&i);
+  std::cout << (p2[0] == '\x7' ? "This system is little-endian\n" : "This system is big-endian\n");
+
+  // type aliasing through reference
+  reinterpret_cast<unsigned int&>(i) = 42;
+  std::cout << i << std::endl;
+
+  [[maybe_unused]] const int& const_iref = i;
+  // ERROR: can't get rid of const
+  // int &iref = reinterpret_cast<int&>(const_iref);
+  [[maybe_unused]] int& iref = const_cast<int&>(const_iref);  // OK
+}
+
 int main() {
   test_const_cast();
+  test_reinterpret_cast();
   return 0;
 }

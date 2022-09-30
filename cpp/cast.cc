@@ -4,6 +4,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <cxxabi.h>
 
@@ -125,12 +126,36 @@ class D : public A, public B, public C {
   int64_t d_;
 };
 
+struct Base {
+  int m = 42;
+  const char* hello() const { return "Hello world, this is Base!\n"; }
+};
+
+struct Derived : Base {
+  const char* hello() const { return "Hello world, this is Derived!\n"; }
+};
+
+enum class E { ONE = 1, TWO, THREE };
+enum EU { ONE = 1, TWO, THREE };
+
 // 'static_cast' can perform conversions between pointers to related classes, not only upcasts (from
 // pointer-to-derived to pointer-to-base), but also downcasts (from pointer-to-base to
 // pointer-to-derived). No checks are performed during runtime to guarantee that the object being
 // converted is in fact a full object of the destination type. Therefore, it is up to the programmer
 // to ensure that the conversion is safe. On the other side, it does not incur the overhead of the
 // type-safety checks of 'dynamic_cast'.
+//
+// static_cast is also able to perform all conversions allowed implicitly (not only those with
+// pointers to classes), and is also able to perform the opposite of these. It can:
+//   Convert from void* to any pointer type. In this case, it guarantees that if the void* value was
+//   obtained by converting from that same pointer type, the resulting pointer value is the same.
+//   Convert integers, floating-point values and enum types to enum types.
+
+// Additionally, static_cast can also perform the following:
+//   Explicitly call a single-argument constructor or a conversion operator.
+//   Convert to rvalue references.
+//   Convert enum class values into integers or floating-point values.
+//   Convert any type to void, evaluating and discarding the value.
 void test_static_cast() {
   std::cout << "sizeof(A): " << sizeof(A) << std::endl;
   std::cout << "sizeof(AA): " << sizeof(AA) << std::endl;
@@ -204,6 +229,9 @@ void test_static_cast() {
   std::cout << "static_cast<C*>(p3)" << static_cast<C*>(p3) << std::endl;
   std::cout << "static_cast<B*>(p3)" << static_cast<B*>(p3) << std::endl;
   std::cout << "static_cast<A*>(p3)" << static_cast<A*>(p3) << std::endl;
+  std::cout << "dynamic_cast<C*>(p3)" << dynamic_cast<C*>(p3) << std::endl;
+  std::cout << "dynamic_cast<B*>(p3)" << dynamic_cast<B*>(p3) << std::endl;
+  std::cout << "dynamic_cast<A*>(p3)" << dynamic_cast<A*>(p3) << std::endl;
   delete p3;
 
   // downcast
@@ -216,14 +244,148 @@ void test_static_cast() {
   std::cout << "static_cast<D*>(p4)" << static_cast<D*>(p4) << std::endl;
   std::cout << "static_cast<D*>(p5)" << static_cast<D*>(p5) << std::endl;
   std::cout << "static_cast<D*>(p6)" << static_cast<D*>(p6) << std::endl;
+  std::cout << "dynamic_cast<D*>(p4)" << dynamic_cast<D*>(p4) << std::endl;
+  std::cout << "dynamic_cast<D*>(p5)" << dynamic_cast<D*>(p5) << std::endl;
+  std::cout << "dynamic_cast<D*>(p6)" << dynamic_cast<D*>(p6) << std::endl;
   delete p4;
   delete p5;
   delete p6;
+
+  // 1. static downcast
+  Derived de;
+  Base& br = de;  // upcast via implicit conversion
+  std::cout << "1) " << br.hello();
+  Derived& another_d = static_cast<Derived&>(br);  // downcast
+  std::cout << "1) " << another_d.hello();
+
+  // 2. lvalue to xvalue
+  std::vector<int> v0{1, 2, 3};
+  std::vector<int> v2 = static_cast<std::vector<int>&&>(v0);
+  std::cout << "2) after move, v0.size() = " << v0.size() << '\n';
+
+  // 3. initializing conversion
+  int n = static_cast<int>(3.14);
+  std::cout << "3) n = " << n << '\n';
+  std::vector<int> v = static_cast<std::vector<int>>(10);
+  std::cout << "3) v.size() = " << v.size() << '\n';
+
+  // 4. discarded-value expression
+  static_cast<void>(v2.size());
+
+  // 5. inverse of implicit conversion
+  void* nv = &n;
+  int* ni = static_cast<int*>(nv);
+  std::cout << "4) *ni = " << *ni << '\n';
+
+  // 6. array-to-pointer followed by upcast
+  Derived ary[10];
+  [[maybe_unused]] Base* dp = static_cast<Base*>(ary);
+
+  // 7. scoped enum to int
+  E e = E::TWO;
+  int two = static_cast<int>(e);
+  std::cout << "7) " << two << '\n';
+
+  // 8. int to enum, enum to another enum
+  E e2 = static_cast<E>(two);
+  [[maybe_unused]] EU eu = static_cast<EU>(e2);
+
+  // 9. pointer to member upcast
+  int Derived::*pm = &Derived::m;
+  std::cout << "9) " << br.*static_cast<int Base::*>(pm) << '\n';
+
+  // 10. void* to any type
+  void* voidp = &e;
+  [[maybe_unused]] auto p = static_cast<std::vector<int>*>(voidp);
+}
+
+class A1 {
+ public:
+  int8_t a_;
+  A1(int8_t a) : a_(a) {}
+  virtual void Print() { std::cout << "A1::Print" << std::endl; }
+  virtual ~A1() {}
+};
+
+class B1 : public A1 {
+ public:
+  int16_t b_;
+  B1(int16_t b) : A1(b + 1), b_(b) {}
+  void Print() override { std::cout << "B1::Print" << std::endl; }
+  virtual ~B1() {}
+};
+
+class C1 : public A1 {
+ public:
+  int32_t c_;
+  C1(int32_t c) : A1(c * 2), c_(c) {}
+  void Print() override { std::cout << "C1::Print" << std::endl; }
+  virtual ~C1() {}
+};
+
+class D1 : public B1, public C1 {
+ public:
+  int64_t d_;
+  D1(int64_t d) : B1(d), C1(d), d_(d) {}
+  void Print() override { std::cout << "D1::Print" << std::endl; }
+  virtual ~D1() {}
+};
+
+// dynamic_cast can only be used with pointers and references to classes (or with void*). Its
+// purpose is to ensure that the result of the type conversion points to a valid complete object of
+// the destination pointer type.
+//
+// This naturally includes pointer upcast (converting from pointer-to-derived to pointer-to-base),
+// in the same way as allowed as an implicit conversion.
+//
+// But dynamic_cast can also downcast (convert from pointer-to-base to pointer-to-derived)
+// polymorphic classes (those with virtual members) if -and only if- the pointed object is a valid
+// complete object of the target type.
+//
+// Compatibility note: This type of dynamic_cast requires Run-Time Type Information (RTTI) to keep
+// track of dynamic types. Some compilers support this feature as an option which is disabled by
+// default. This needs to be enabled for runtime type checking using dynamic_cast to work properly
+// with these types.
+//
+// dynamic_cast can also perform the other implicit casts allowed on pointers: casting null pointers
+// between pointers types (even between unrelated classes), and casting any pointer of any type to a
+// void* pointer.
+void test_dynamic_cast() {
+  std::cout << "sizeof(A1): " << sizeof(A1) << std::endl;
+  std::cout << "sizeof(B1): " << sizeof(B1) << std::endl;
+  std::cout << "sizeof(C1): " << sizeof(C1) << std::endl;
+  std::cout << "sizeof(D1): " << sizeof(D1) << std::endl;
+
+  // upcast
+  auto p = new D1(6);
+  std::cout << "p: " << p << std::endl;
+  // ERROR: Ambiguous conversion from derived class 'D1' to base class 'A1'
+  // std::cout << "static_cast<A1*>(p): " << static_cast<A1*>(p) << std::endl;
+  std::cout << "static_cast<B1*>(p): " << static_cast<B1*>(p) << std::endl;
+  std::cout << "static_cast<C1*>(p): " << static_cast<C1*>(p) << std::endl;
+  // ERROR: Ambiguous conversion from derived class 'D1' to base class 'A1'
+  // std::cout << "dynamic_cast<A1*>(p): " << dynamic_cast<A1*>(p) << std::endl;
+  std::cout << "dynamic_cast<B1*>(p): " << dynamic_cast<B1*>(p) << std::endl;
+  std::cout << "dynamic_cast<C1*>(p): " << dynamic_cast<C1*>(p) << std::endl;
+
+  // downcast
+  auto q = static_cast<A1*>(static_cast<void*>(p));
+  std::cout << "q: " << q << std::endl;
+  std::cout << "static_cast<B1*>(q): " << static_cast<B1*>(q) << std::endl;
+  std::cout << "static_cast<C1*>(q): " << static_cast<C1*>(q) << std::endl;
+  // ERROR: Ambiguous cast from base 'A1' to derived 'D1'
+  // std::cout << "static_cast<D1*>(q): " << static_cast<D1*>(q) << std::endl;
+  std::cout << "dynamic_cast<B1*>(q): " << dynamic_cast<B1*>(q) << std::endl;
+  std::cout << "dynamic_cast<C1*>(q): " << dynamic_cast<C1*>(q) << std::endl;
+  std::cout << "dynamic_cast<D1*>(q): " << dynamic_cast<D1*>(q) << std::endl;
+
+  delete p;
 }
 
 int main() {
   test_const_cast();
   test_reinterpret_cast();
   test_static_cast();
+  test_dynamic_cast();
   return 0;
 }

@@ -4,7 +4,7 @@
 #define BAR_I() BAR
 #define BAR() DEFER(BAR_I)()() 1
 
-// BAR()
+BAR()
 // BAR_I ()() 1
 
 /*
@@ -14,10 +14,10 @@
  * DEFER(BAR_I)()() 1 // DEFER:{BAR} BAR_I:{BAR}
  * |
  * v
- * BAR_I EMPTY()()() 1 // BAR_I:{BAR, DEFER} EMPTY:{DEFER)}
+ * `BAR_I EMPTY()`()() 1 // BAR_I:{BAR, DEFER} EMPTY:{DEFER)}
  * |
  * v
- * BAR_I ()() 1 // BAR_I:{BAR, DEFER}
+ * `BAR_I `()() 1 // BAR_I:{BAR, DEFER}
  */
 
 EXPAND(BAR())

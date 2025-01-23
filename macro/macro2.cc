@@ -15,13 +15,13 @@ FOO(BAR())
  * FOO(1 BAR) // FOO:{} BAR:{BAR, BAZ}
  * |
  * v
- * BAR() - 1 BAR() // BAR:{FOO} BAR:{BARm, BAZ, FOO}
+ * BAR() - 1 BAR() // BAR:{FOO} BAR:{BAR, BAZ, FOO}
  * |
  * v
- * 1 BAZ() - 1 BAR() // BAZ:{FOO, BAR} BAR:{BARm, BAZ, FOO}
+ * 1 BAZ() - 1 BAR() // BAZ:{FOO, BAR} BAR:{BAR, BAZ, FOO}
  * |
  * v
- * 1 BAR - 1 BAR() // BAR:{FOO, BAR, BAZ} BAR:{BARm, BAZ, FOO}
+ * 1 BAR - 1 BAR() // BAR:{FOO, BAR, BAZ} BAR:{BAR, BAZ, FOO}
  */
 
 FOO(FOO(BAR()))
@@ -46,7 +46,7 @@ FOO(FOO(BAR()))
  * FOO(1 BAR - 1 BAR()) // FOO:{} BAR:{FOO, BAR, BAZ} BAR:{BAR, BAZ, FOO}
  * |
  * v
- * BAR() - 1 BAR - 1 BAR()() // BAR:{FOO} BAR:{FOO, BAR, BAZ} BAR:{BAR, BAZ, FOO}
+ * `BAR() - 1 BAR - 1 BAR()`() // BAR:{FOO} BAR:{FOO, BAR, BAZ} BAR:{BAR, BAZ, FOO}
  * |
  * V
  * 1 BAZ() - 1 BAR - 1 BAR()() // BAZ:{FOO, BAR} BAR:{FOO, BAR, BAZ} BAR:{BAR, BAZ, FOO}
